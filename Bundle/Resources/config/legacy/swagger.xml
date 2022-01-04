@@ -5,14 +5,25 @@
            xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
 
     <services>
+        <!-- Path name generator -->
+        <service id="api_platform.operation_path_resolver.underscore" class="ApiPlatform\Core\PathResolver\UnderscoreOperationPathResolver" public="false" />
+        <service id="api_platform.operation_path_resolver.dash" class="ApiPlatform\Core\PathResolver\DashOperationPathResolver" public="false" />
+
+        <service id="api_platform.operation_path_resolver.legacy" alias="api_platform.operation_path_resolver.router" public="false" />
+
+        <service id="api_platform.operation_path_resolver.router" class="ApiPlatform\Core\Bridge\Symfony\Routing\RouterOperationPathResolver" public="false">
+            <argument type="service" id="api_platform.router" />
+            <argument type="service" id="api_platform.operation_path_resolver.custom" />
+            <argument type="service" id="api_platform.subresource_operation_factory" />
+        </service>
 
         <service id="api_platform.swagger.normalizer.documentation" class="ApiPlatform\Core\Swagger\Serializer\DocumentationNormalizer" public="false">
-            <argument type="service" id="api_platform.metadata.resource.metadata_collection_factory" />
+            <argument type="service" id="api_platform.metadata.resource.metadata_collection_factory.retro_compatible" />
             <argument type="service" id="api_platform.metadata.property.name_collection_factory" />
-            <argument type="service" id="api_platform.metadata.property.metadata_factory" />
+            <argument type="service" id="api_platform.metadata.property.metadata_factory.legacy" />
             <argument type="service" id="api_platform.json_schema.schema_factory" />
             <argument type="service" id="api_platform.json_schema.type_factory" />
-            <argument type="service" id="api_platform.operation_path_resolver" />
+            <argument type="service" id="api_platform.operation_path_resolver.legacy" />
             <argument>null</argument>
             <argument type="service" id="api_platform.filter_locator" />
             <argument>null</argument>
@@ -34,6 +45,8 @@
             <argument type="collection" />
             <argument>%api_platform.swagger.versions%</argument>
             <argument type="service" id="api_platform.identifiers_extractor.cached" />
+            <argument>null</argument>
+            <argument>%api_platform.metadata_backward_compatibility_layer%</argument>
             <tag name="serializer.normalizer" priority="-790" />
         </service>
 
@@ -50,9 +63,9 @@
             <argument>%api_platform.version%</argument>
             <argument>null</argument>
             <argument>%api_platform.swagger.versions%</argument>
+            <argument>%api_platform.metadata_backward_compatibility_layer%</argument>
             <tag name="console.command" />
         </service>
 
     </services>
-
 </container>
