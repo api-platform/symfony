@@ -11,12 +11,15 @@
 
 declare(strict_types=1);
 
-namespace ApiPlatform\Symfony\Bundle\Command;
+namespace ApiPlatform\Symfony\Bundle\Test;
 
-class_exists(\ApiPlatform\OpenApi\Command\OpenApiCommand::class);
-
-if (false) {
-    final class OpenApiCommand extends \ApiPlatform\OpenApi\Command\OpenApiCommand
+trait ClientTrait
+{
+    public function withOptions(array $options): static
     {
+        $clone = clone $this;
+        $clone->defaultOptions = self::mergeDefaultOptions($options, $this->defaultOptions);
+
+        return $clone;
     }
 }
