@@ -52,7 +52,8 @@ final class ParameterValidatorProvider implements ProviderInterface
         }
 
         $constraintViolationList = new ConstraintViolationList();
-        $parameters = $operation->getParameters() ?? new Parameters();
+        $existingParameters = $operation->getParameters();
+        $parameters = $existingParameters ? clone $existingParameters : new Parameters();
 
         if ($operation instanceof HttpOperation) {
             foreach ($operation->getUriVariables() ?? [] as $key => $uriVariable) {
@@ -87,9 +88,8 @@ final class ParameterValidatorProvider implements ProviderInterface
                     $violation->getInvalidValue(),
                     $violation->getPlural(),
                     $violation->getCode(),
-                    // TODO: remove these with symfony ^7
-                    method_exists($violation, 'getConstraint') ? $violation->getConstraint() : null, // @phpstan-ignore-line symfony/validator 6.4 is still allowed and this may be true
-                    method_exists($violation, 'getCause') ? $violation->getCause() : null // @phpstan-ignore-line symfony/validator 6.4 is still allowed and this may be true
+                    $violation->getConstraint(),
+                    $violation->getCause()
                 ));
             }
         }
