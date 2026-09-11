@@ -325,6 +325,10 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $loader->load('api.php');
         $loader->load('filter.php');
 
+        if (class_exists(\PhpParser\ParserFactory::class)) {
+            $loader->load('upgrade.php');
+        }
+
         if (class_exists(UuidDenormalizer::class) && class_exists(Uuid::class)) {
             $loader->load('ramsey_uuid.php');
         }
@@ -359,6 +363,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
         $container->setParameter('api_platform.enable_entrypoint', $config['enable_entrypoint']);
         $container->setParameter('api_platform.enable_docs', $config['enable_docs']);
+        $container->setParameter('api_platform.enable_head_request_optimization', $config['enable_head_request_optimization']);
         $container->setParameter('api_platform.title', $config['title']);
         $container->setParameter('api_platform.description', $config['description']);
         $container->setParameter('api_platform.version', $config['version']);
@@ -404,7 +409,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.http_cache.stale_while_revalidate', $config['defaults']['cache_headers']['stale_while_revalidate'] ?? null);
         $container->setParameter('api_platform.http_cache.stale_if_error', $config['defaults']['cache_headers']['stale_if_error'] ?? null);
         $container->setParameter('api_platform.http_cache.invalidation.max_header_length', $config['defaults']['cache_headers']['invalidation']['max_header_length'] ?? $config['http_cache']['invalidation']['max_header_length']);
-        $container->setParameter('api_platform.http_cache.invalidation.xkey.glue', $config['defaults']['cache_headers']['invalidation']['xkey']['glue'] ?? $config['http_cache']['invalidation']['xkey']['glue']);
+        $container->setParameter('api_platform.http_cache.invalidation.xkey.glue', $config['defaults']['cache_headers']['invalidation']['xkey']['glue'] ?? ' ');
 
         $container->setAlias('api_platform.path_segment_name_generator', $config['path_segment_name_generator']);
         $container->setAlias('api_platform.inflector', $config['inflector']);
@@ -474,13 +479,6 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
 
         $loader->load('metadata/resource_name.php');
         $loader->load('metadata/property_name.php');
-
-        if (!empty($config['resource_class_directories'])) {
-            $container->setParameter('api_platform.resource_class_directories', array_merge(
-                $config['resource_class_directories'],
-                $container->getParameter('api_platform.resource_class_directories')
-            ));
-        }
 
         // V3 metadata
         $loader->load('metadata/php.php');
@@ -695,6 +693,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $container->setParameter('api_platform.enable_scalar', $config['enable_scalar']);
         $container->setParameter('api_platform.swagger.api_keys', $config['swagger']['api_keys']);
         $container->setParameter('api_platform.swagger.persist_authorization', $config['swagger']['persist_authorization']);
+        $container->setParameter('api_platform.swagger.with_credentials', $config['swagger']['with_credentials']);
         $container->setParameter('api_platform.swagger.http_auth', $config['swagger']['http_auth']);
         if ($config['openapi']['swagger_ui_extra_configuration'] && $config['swagger']['swagger_ui_extra_configuration']) {
             throw new RuntimeException('You can not set "swagger_ui_extra_configuration" twice - in "openapi" and "swagger" section.');
@@ -716,10 +715,20 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
         $loader->load('jsonapi.php');
         $loader->load('state/jsonapi.php');
 
+        $useIriAsId = $config['jsonapi']['use_iri_as_id'];
+        if (null === $useIriAsId) {
+            trigger_deprecation('api-platform/core', '4.4', 'Not setting "api_platform.jsonapi.use_iri_as_id" explicitly is deprecated. Its default value will change from "true" to "false" in API Platform 5.0. Set it to "true" to keep the current behavior or to "false" to use entity identifiers as the "id" field, and silence this deprecation.');
+            $useIriAsId = true;
+        }
+
         $itemNormalizer = $container->getDefinition('api_platform.jsonapi.normalizer.item');
         $itemNormalizer->replaceArgument(7, [JsonApiItemNormalizer::ALLOW_CLIENT_GENERATED_ID => $config['jsonapi']['allow_client_generated_id'] ?? false]);
-        $itemNormalizer->addArgument($config['jsonapi']['use_iri_as_id']);
+        $itemNormalizer->addArgument($useIriAsId);
         $itemNormalizer->addArgument(new Reference('api_platform.jsonapi.resource_linkage_resolver'));
+
+        $itemDenormalizer = $container->getDefinition('api_platform.jsonapi.denormalizer.item');
+        $itemDenormalizer->replaceArgument(7, [JsonApiItemNormalizer::ALLOW_CLIENT_GENERATED_ID => $config['jsonapi']['allow_client_generated_id'] ?? false]);
+        $itemDenormalizer->addArgument($useIriAsId);
     }
 
     private function registerJsonLdHydraConfiguration(ContainerBuilder $container, array $formats, PhpFileLoader $loader, array $config): void
@@ -903,9 +912,7 @@ final class ApiPlatformExtension extends Extension implements PrependExtensionIn
             $definition->addTag('api_platform.http_cache.http_client');
         }
 
-        if (!($urls = $config['http_cache']['invalidation']['urls'])) {
-            $urls = $config['http_cache']['invalidation']['varnish_urls'];
-        }
+        $urls = $config['http_cache']['invalidation']['urls'];
 
         foreach ($urls as $key => $url) {
             $definition = new Definition(ScopingHttpClient::class, [new Reference('http_client'), $url, ['base_uri' => $url] + $config['http_cache']['invalidation']['request_options']]);
