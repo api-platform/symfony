@@ -85,7 +85,6 @@ return static function (ContainerConfigurator $container) {
             null,
             service('api_platform.serializer'),
             service('api_platform.serializer.context_builder'),
-            null,
             service('api_platform.state.denormalization_violation_factory')->nullOnInvalid(),
         ]);
 
