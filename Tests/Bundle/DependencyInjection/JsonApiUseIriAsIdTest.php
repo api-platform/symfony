@@ -20,8 +20,6 @@ use ApiPlatform\Symfony\Bundle\DependencyInjection\ApiPlatformExtension;
 use ApiPlatform\Tests\Fixtures\TestBundle\TestBundle;
 use Doctrine\Bundle\DoctrineBundle\DoctrineBundle;
 use Doctrine\ORM\OptimisticLockException;
-use PHPUnit\Framework\Attributes\Group;
-use PHPUnit\Framework\Attributes\IgnoreDeprecations;
 use PHPUnit\Framework\TestCase;
 use Symfony\Bundle\SecurityBundle\SecurityBundle;
 use Symfony\Bundle\TwigBundle\TwigBundle;
@@ -29,7 +27,7 @@ use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\ParameterBag\ParameterBag;
 use Symfony\Component\HttpFoundation\Response;
 
-final class JsonApiUseIriAsIdDeprecationTest extends TestCase
+final class JsonApiUseIriAsIdTest extends TestCase
 {
     private ContainerBuilder $container;
 
@@ -56,19 +54,19 @@ final class JsonApiUseIriAsIdDeprecationTest extends TestCase
         $this->container = new ContainerBuilder($containerParameterBag);
     }
 
-    #[Group('legacy')]
-    #[IgnoreDeprecations]
-    public function testNotSettingUseIriAsIdIsDeprecatedAndResolvesToTrue(): void
+    /**
+     * Since 5.0 the option defaults to "false": the "id" field carries the entity
+     * identifier and the IRI moves to "links.self".
+     */
+    public function testNotSettingUseIriAsIdResolvesToFalse(): void
     {
-        $this->expectUserDeprecationMessage('Since api-platform/core 4.4: Not setting "api_platform.jsonapi.use_iri_as_id" explicitly is deprecated. Its default value will change from "true" to "false" in API Platform 5.0. Set it to "true" to keep the current behavior or to "false" to use entity identifiers as the "id" field, and silence this deprecation.');
-
         (new ApiPlatformExtension())->load($this->buildConfig(), $this->container);
 
-        $this->assertTrue($this->container->getDefinition('api_platform.jsonapi.normalizer.item')->getArgument(13));
-        $this->assertTrue($this->container->getDefinition('api_platform.jsonapi.denormalizer.item')->getArgument(12));
+        $this->assertFalse($this->container->getDefinition('api_platform.jsonapi.normalizer.item')->getArgument(13));
+        $this->assertFalse($this->container->getDefinition('api_platform.jsonapi.denormalizer.item')->getArgument(12));
     }
 
-    public function testSettingUseIriAsIdToFalseDoesNotDeprecateAndResolvesToFalse(): void
+    public function testSettingUseIriAsIdToFalseResolvesToFalse(): void
     {
         (new ApiPlatformExtension())->load($this->buildConfig(['use_iri_as_id' => false]), $this->container);
 
@@ -76,7 +74,7 @@ final class JsonApiUseIriAsIdDeprecationTest extends TestCase
         $this->assertFalse($this->container->getDefinition('api_platform.jsonapi.denormalizer.item')->getArgument(12));
     }
 
-    public function testSettingUseIriAsIdToTrueDoesNotDeprecateAndResolvesToTrue(): void
+    public function testSettingUseIriAsIdToTrueResolvesToTrue(): void
     {
         (new ApiPlatformExtension())->load($this->buildConfig(['use_iri_as_id' => true]), $this->container);
 
