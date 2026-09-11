@@ -56,6 +56,20 @@ abstract class ApiTestCase extends KernelTestCase
         $this->symfonyErrorHandlerWasRegistered = self::isSymfonyErrorHandlerRegistered();
     }
 
+    /**
+     * Symfony >= 8.2 flips the default verbosity of BrowserKit response assertions to false, so a failing
+     * assertion (e.g. assertResponseStatusCodeSame()) no longer prints the response body. That default targets
+     * full HTML pages; API responses are compact JSON payloads whose body is exactly what you need to debug a
+     * failing test. Keep verbose output on by default here so upgrading Symfony does not silently degrade API
+     * test failures. Projects can still opt out per suite (setBrowserKitAssertionsAsVerbose(false) in setUp(),
+     * which runs after this hook) or per assertion (verbose: false).
+     */
+    #[Before]
+    protected function keepBrowserKitAssertionsVerbose(): void
+    {
+        self::setBrowserKitAssertionsAsVerbose(true);
+    }
+
     #[After]
     protected function restoreExceptionHandlerStack(): void
     {
